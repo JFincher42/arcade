@@ -1,5 +1,6 @@
 # --- BEGIN TEXT FUNCTIONS # # #
 
+from itertools import chain
 from typing import Tuple, Union, cast
 
 import PIL.Image
@@ -10,6 +11,18 @@ from arcade.sprite import Sprite
 from arcade.arcade_types import Color
 from arcade.draw_commands import Texture
 from arcade.arcade_types import RGBA
+from arcade.draw_commands import get_four_byte_color
+
+import pyglet
+
+DEFAULT_FONT_NAMES = (
+    "arial.ttf",
+    "Arial.ttf",
+    "NotoSans-Regular.ttf",
+    "/usr/share/fonts/truetype/freefont/FreeMono.ttf",
+    "/System/Library/Fonts/SFNSDisplay.ttf",
+    "/Library/Fonts/Arial.ttf"
+)
 
 
 class Text:
@@ -164,56 +177,25 @@ def draw_text(text: str,
 
         # Font was specified with a string
         if isinstance(font_name, str):
+            font_name = [font_name]
+
+        font_names = chain(*[
+            [font_string_name, f"{font_string_name}.ttf"]
+            for font_string_name in font_name
+        ], DEFAULT_FONT_NAMES)
+
+        font_found = False
+        for font_string_name in font_names:
             try:
-                font = PIL.ImageFont.truetype(font_name, int(font_size))
+                font = PIL.ImageFont.truetype(font_string_name, int(font_size))
             except OSError:
-                # print(f"1 Can't find font: {font_name}")
-                pass
+                continue
+            else:
+                font_found = True
+                break
 
-            if font is None:
-                try:
-                    temp_font_name = f"{font_name}.ttf"
-                    font = PIL.ImageFont.truetype(temp_font_name, int(font_size))
-                except OSError:
-                    # print(f"2 Can't find font: {temp_font_name}")
-                    pass
-
-        # We were instead given a list of font names, in order of preference
-        else:
-            for font_string_name in font_name:
-                try:
-                    font = PIL.ImageFont.truetype(font_string_name, int(font_size))
-                    # print(f"3 Found font: {font_string_name}")
-                except OSError:
-                    # print(f"3 Can't find font: {font_string_name}")
-                    pass
-
-                if font is None:
-                    try:
-                        temp_font_name = f"{font_string_name}.ttf"
-                        font = PIL.ImageFont.truetype(temp_font_name, int(font_size))
-                    except OSError:
-                        # print(f"4 Can't find font: {temp_font_name}")
-                        pass
-
-                if font is not None:
-                    break
-
-        # Default font if no font
-        if font is None:
-            font_names = ("arial.ttf",
-                          'Arial.ttf',
-                          'NotoSans-Regular.ttf',
-                          "/usr/share/fonts/truetype/freefont/FreeMono.ttf",
-                          '/System/Library/Fonts/SFNSDisplay.ttf',
-                          '/Library/Fonts/Arial.ttf')
-            for font_string_name in font_names:
-                try:
-                    font = PIL.ImageFont.truetype(font_string_name, int(font_size))
-                    break
-                except OSError:
-                    # print(f"5 Can't find font: {font_string_name}")
-                    pass
+        if not font_found:
+            raise RuntimeError("Unable to find a default font on this system. Please specify an available font.")
 
         # This is stupid. We have to have an image to figure out what size
         # the text will be when we draw it. Of course, we don't know how big
@@ -296,3 +278,48 @@ def draw_text(text: str,
 
 
 draw_text.cache = {}  # type: ignore # dynamic attribute on function obj
+
+
+def draw_text_2(text: str,
+                start_x: float, start_y: float,
+                color: Color,
+                font_size: float = 12,
+                width: int = 0,
+                align: str = "left",
+                font_name: Union[str, Tuple[str, ...]] = ('calibri', 'arial'),
+                bold: bool = False,
+                italic: bool = False,
+                anchor_x: str = "left",
+                anchor_y: str = "baseline",
+                rotation: float = 0
+                ):
+    """
+
+    :param str text: Text to draw
+    :param float start_x:
+    :param float start_y:
+    :param Color color: Color of the text
+    :param float font_size: Size of the text
+    :param float width:
+    :param str align:
+    :param Union[str, Tuple[str, ...]] font_name:
+    :param bool bold:
+    :param bool italic:
+    :param str anchor_x:
+    :param str anchor_y:
+    :param float rotation:
+    """
+
+    color = get_four_byte_color(color)
+    label = pyglet.text.Label(text,
+                              font_name=font_name,
+                              font_size=font_size,
+                              x=start_x, y=start_y,
+                              anchor_x=anchor_x, anchor_y=anchor_y,
+                              color=color,
+                              align=align,
+                              bold=bold,
+                              italic=italic,
+                              width=width)
+
+    label.draw()
