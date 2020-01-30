@@ -12,7 +12,6 @@ except ModuleNotFoundError:
     raise Exception('dataclasses not available, if running on Python 3.6 please manually install '
                     'https://pypi.org/project/dataclasses/')
 
-from typing import Sequence
 from typing import Tuple
 from typing import List
 from typing import Dict
@@ -23,9 +22,10 @@ from typing import TYPE_CHECKING
 import PIL.Image
 
 from arcade import load_texture
-from arcade import draw_texture_rectangle
+from arcade import draw_scaled_texture_rectangle
 from arcade import Texture
 from arcade import rotate_point
+from arcade import draw_polygon_outline
 
 from arcade.arcade_types import RGB, Point
 if TYPE_CHECKING:  # handle import cycle caused by type hinting
@@ -60,8 +60,8 @@ class Sprite:
         :change_angle: Change in rotation.
         :color: Color tint the sprite
         :collision_radius: Used as a fast-check to see if this item is close \
-        enough to another item. If this check works, we do a slower more accurate check.
-        You probably don't want to use this field. Instead, set points in the
+        enough to another item. If this check works, we do a slower more accurate check. \
+        You probably don't want to use this field. Instead, set points in the \
         hit box.
         :cur_texture_index: Index of current texture being used.
         :guid: Unique identifier for the sprite. Useful when debugging.
@@ -141,9 +141,9 @@ class Sprite:
 
             if self._texture:
                 self.textures = [self._texture]
+                # Ignore the texture's scale and use ours
                 self._width = self._texture.width * scale
                 self._height = self._texture.height * scale
-                self._texture.scale = scale
             else:
                 self.textures = []
                 self._width = 0
@@ -174,15 +174,15 @@ class Sprite:
         self._collision_radius: Optional[float] = None
         self._color: RGB = (255, 255, 255)
 
-        if self._texture:
-            self._points = self._texture.unscaled_hitbox_points
-        else:
-            self._points: Optional[Sequence[Sequence[float]]] = None
+        self._points: Optional[List[List[float]]] = None
 
-        self._point_list_cache: Optional[Tuple[Tuple[float, float], ...]] = None
+        if self._texture:
+            self._points = self._texture.hit_box_points
+
+        self._point_list_cache: Optional[List[List[float]]] = None
 
         self.force = [0, 0]
-        self.guid = None
+        self.guid: Optional[str] = None
 
         self.repeat_count_x = repeat_count_x
         self.repeat_count_y = repeat_count_y
@@ -236,34 +236,35 @@ class Sprite:
         """
         self._set_position((center_x, center_y))
 
-    def set_points(self, points: Sequence[Sequence[float]]):
+    def set_points(self, points: List[List[float]]):
         """
         Set a sprite's hitbox
         """
         from warnings import warn
-        warn('set_points has been deprecated. Use set_hitbox instead.', DeprecationWarning)
+        warn('set_points has been deprecated. Use set_hit_box instead.', DeprecationWarning)
 
         self._points = points
 
-    def get_points(self) -> Tuple[Tuple[float, float], ...]:
+    def get_points(self) -> List[List[float]]:
         """
         Get the points that make up the hit box for the rect that makes up the
         sprite, including rotation and scaling.
         """
         from warnings import warn
-        warn('get_points has been deprecated. Use get_hitbox instead.', DeprecationWarning)
+        warn('get_points has been deprecated. Use get_hit_box instead.', DeprecationWarning)
 
         return self.get_adjusted_hit_box()
 
     points = property(get_points, set_points)
 
-    def set_hit_box(self, points: Sequence[Sequence[float]]):
+    def set_hit_box(self, points: List[List[float]]):
         """
-        Set a sprite's hit box
+        Set a sprite's hit box. When setting the hitbox, assume a sprite
+        scaling of 1.0. Points will be scaled with get_adjusted_hit_box.
         """
         self._points = points
 
-    def get_hit_box(self) -> Tuple[Tuple[float, float], ...]:
+    def get_hit_box(self) -> Optional[List[List[float]]]:
         """
         Get a sprite's hit box
         """
@@ -271,43 +272,61 @@ class Sprite:
 
     hit_box = property(get_hit_box, set_hit_box)
 
-    def get_adjusted_hit_box(self) -> Tuple[Tuple[float, float], ...]:
+    def get_adjusted_hit_box(self) -> List[List[float]]:
         """
         Get the points that make up the hit box for the rect that makes up the
         sprite, including rotation and scaling.
         """
 
+        # If we've already calculated the adjusted hit box, use the cached version
         if self._point_list_cache is not None:
             return self._point_list_cache
 
+        # If there is no hitbox, use the width/height to get one
+        if self._points is None and self._texture:
+            self._points = self._texture.hit_box_points
+
+        if self._points is None and self._width:
+            x1, y1 = - self._width / 2, - self._height / 2
+            x2, y2 = + self._width / 2, - self._height / 2
+            x3, y3 = + self._width / 2, + self._height / 2
+            x4, y4 = - self._width / 2, + self._height / 2
+
+            self._points = [[x1, y1], [x2, y2], [x3, y3], [x4, y4]]
+
+        if self._points is None and self.texture is not None:
+            self._points = self.texture.hit_box_points
+
         if self._points is None:
-            x1, y1 = - self.width / 2, - self.height / 2
-            x2, y2 = + self.width / 2, - self.height / 2
-            x3, y3 = + self.width / 2, + self.height / 2
-            x4, y4 = - self.width / 2, + self.height / 2
+            raise ValueError("Error trying to get the hit box of a sprite, when no hit box is set.\nPlease make sure the "
+                             "Sprite.texture is set to a texture before trying to draw or do collision testing.\n"
+                             "Alternatively, manually call Sprite.set_hit_box with points for your hitbox.")
 
-            self._points = ((x1, y1), (x2, y2), (x3, y3), (x4, y4))
-
+        # Adjust the hitbox
         point_list = []
         for point_idx in range(len(self._points)):
             # Get the point
             point = [self._points[point_idx][0], self._points[point_idx][1]]
-
-            # Rotate the point
-            if self.angle:
-                point = rotate_point(point[0], point[1], 0, 0, self.angle)
 
             # Scale the point
             if self.scale != 1:
                 point[0] *= self.scale
                 point[1] *= self.scale
 
-            # Offset the point
-            point = (point[0] + self.center_x,
-                     point[1] + self.center_y)
-            point_list.append(point)
-        self._point_list_cache = tuple(point_list)
+            # Rotate the point
+            if self.angle:
+                point = rotate_point(point[0], point[1], 0, 0, self.angle)
 
+            # Offset the point
+            point = [point[0] + self.center_x,
+                     point[1] + self.center_y]
+            point_list.append(point)
+
+        # Cache the results
+        self._point_list_cache = point_list
+
+        # if self.texture:
+        #     print(self.texture.name, self._point_list_cache)
         return self._point_list_cache
 
     def forward(self, speed: float = 1.0):
@@ -631,8 +650,8 @@ class Sprite:
         self.clear_spatial_hashes()
         self._point_list_cache = None
         self._texture = texture
-        self._width = texture.width * texture.scale
-        self._height = texture.height * texture.scale
+        self._width = texture.width * self.scale
+        self._height = texture.height * self.scale
         self.add_spatial_hashes()
         for sprite_list in self.sprite_lists:
             sprite_list.update_texture(self)
@@ -646,8 +665,8 @@ class Sprite:
         self.clear_spatial_hashes()
         self._point_list_cache = None
         self._texture = texture
-        self._width = texture.width * texture.scale
-        self._height = texture.height * texture.scale
+        self._width = texture.width * self.scale
+        self._height = texture.height * self.scale
         self.add_spatial_hashes()
         for sprite_list in self.sprite_lists:
             sprite_list.update_texture(self)
@@ -702,11 +721,13 @@ class Sprite:
     def draw(self):
         """ Draw the sprite. """
 
-        draw_texture_rectangle(self.center_x, self.center_y,
-                               self.width, self.height,
-                               self._texture, self.angle, self.alpha,  # TODO: review this function
-                               repeat_count_x=self.repeat_count_x,
-                               repeat_count_y=self.repeat_count_y)
+        draw_scaled_texture_rectangle(self.center_x, self.center_y,
+                                      self._texture, self.scale, self.angle, self.alpha)
+
+    def draw_hit_box(self, color, line_thickness):
+        points = self.get_adjusted_hit_box()
+
+        draw_polygon_outline(points, color, line_thickness)
 
     def update(self):
         """
@@ -820,7 +841,7 @@ class AnimatedTimeSprite(Sprite):
 
 
 @dataclasses.dataclass
-class _AnimationKeyframe:
+class AnimationKeyframe:
     tile_id: int
     duration: int
     image: PIL.Image
@@ -844,7 +865,7 @@ class AnimatedTimeBasedSprite(Sprite):
                          image_width=image_width, image_height=image_height,
                          center_x=center_x, center_y=center_y)
         self.cur_frame = 0
-        self.frames: List[_AnimationKeyframe] = []
+        self.frames: List[AnimationKeyframe] = []
         self.time_counter = 0.0
 
     def update_animation(self, delta_time: float = 1/60):
@@ -859,12 +880,14 @@ class AnimatedTimeBasedSprite(Sprite):
                 self.cur_frame = 0
             source = self.frames[self.cur_frame].image.source
             # print(f"Advance to frame {self.cur_frame}: {source}")
-            self.texture = load_texture(source, scale=self.scale)
+            self.texture = load_texture(source)
 
 
 class AnimatedWalkingSprite(Sprite):
     """
     Sprite for platformer games that supports walking animations.
+    Make sure to call update_animation after loading the animations so the
+    initial texture can be set. Or manually set it.
     For a better example, see:
     http://arcade.academy/examples/platformer.html#animate-character
     """
@@ -975,7 +998,7 @@ class SpriteSolidColor(Sprite):
 
         image = PIL.Image.new('RGBA', (width, height), color)
         self.texture = Texture("Solid", image)
-        self._points = self.texture.unscaled_hitbox_points
+        self._points = self.texture.hit_box_points
 
 
 def get_distance_between_sprites(sprite1: Sprite, sprite2: Sprite) -> float:

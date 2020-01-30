@@ -10,7 +10,6 @@ Buffered Draw Commands.
 
 import math
 import array
-import sys
 
 import PIL.Image
 import PIL.ImageOps
@@ -19,10 +18,10 @@ import PIL.ImageDraw
 import pyglet.gl as gl
 
 from typing import List
+from typing import Tuple
 from typing import TYPE_CHECKING
 
 from arcade import get_projection
-from arcade import get_window
 from arcade import Color
 from arcade import PointList
 from arcade import shader
@@ -82,7 +81,7 @@ def draw_arc_filled(center_x: float, center_y: float,
     :param float tilt_angle: angle the arc is tilted.
     :param float num_segments: Number of line segments used to draw arc.
     """
-    unrotated_point_list = [(0.0, 0.0)]
+    unrotated_point_list = [[0.0, 0.0]]
 
     start_segment = int(start_angle / 360 * num_segments)
     end_segment = int(end_angle / 360 * num_segments)
@@ -93,7 +92,7 @@ def draw_arc_filled(center_x: float, center_y: float,
         x = width * math.cos(theta)
         y = height * math.sin(theta)
 
-        unrotated_point_list.append((x, y))
+        unrotated_point_list.append([x, y])
 
     if tilt_angle == 0:
         uncentered_point_list = unrotated_point_list
@@ -149,8 +148,8 @@ def draw_arc_outline(center_x: float, center_y: float, width: float,
         x2 = outside_width * math.cos(theta)
         y2 = outside_height * math.sin(theta)
 
-        unrotated_point_list.append((x1, y1))
-        unrotated_point_list.append((x2, y2))
+        unrotated_point_list.append([x1, y1])
+        unrotated_point_list.append([x2, y2])
 
     if tilt_angle == 0:
         uncentered_point_list = unrotated_point_list
@@ -292,7 +291,7 @@ def draw_ellipse_filled(center_x: float, center_y: float,
         x = (width / 2) * math.cos(theta)
         y = (height / 2) * math.sin(theta)
 
-        unrotated_point_list.append((x, y))
+        unrotated_point_list.append([x, y])
 
     if tilt_angle == 0:
         uncentered_point_list = unrotated_point_list
@@ -335,7 +334,7 @@ def draw_ellipse_outline(center_x: float, center_y: float, width: float,
             x = (width / 2) * math.cos(theta)
             y = (height / 2) * math.sin(theta)
 
-            unrotated_point_list.append((x, y))
+            unrotated_point_list.append([x, y])
 
         if tilt_angle == 0:
             uncentered_point_list = unrotated_point_list
@@ -370,8 +369,8 @@ def draw_ellipse_outline(center_x: float, center_y: float, width: float,
             x2 = outside_width * math.cos(theta)
             y2 = outside_height * math.sin(theta)
 
-            unrotated_point_list.append((x1, y1))
-            unrotated_point_list.append((x2, y2))
+            unrotated_point_list.append([x1, y1])
+            unrotated_point_list.append([x2, y2])
 
         if tilt_angle == 0:
             uncentered_point_list = unrotated_point_list
@@ -408,7 +407,7 @@ def _generic_draw_line_strip(point_list: PointList,
     # Cache the program. But not on linux because it fails unit tests for some reason.
     # if not _generic_draw_line_strip.program or sys.platform == "linux":
 
-    _generic_draw_line_strip.program = shader.program(
+    program = shader.program(
         vertex_shader=_line_vertex_shader,
         fragment_shader=_line_fragment_shader,
     )
@@ -438,13 +437,11 @@ def _generic_draw_line_strip(point_list: PointList,
 
     vao_content = [vbo_buf_desc, color_buf_desc]
 
-    vao = shader.vertex_array(_generic_draw_line_strip.program, vao_content)
+    vao = shader.vertex_array(program, vao_content)
     with vao:
-        _generic_draw_line_strip.program['Projection'] = get_projection().flatten()
+        program['Projection'] = get_projection().flatten()
         vao.render(mode=mode)
 
-
-_generic_draw_line_strip.program = None
 
 def draw_line_strip(point_list: PointList,
                     color: Color, line_width: float = 1):
@@ -826,10 +823,10 @@ def draw_rectangle_filled(center_x: float, center_y: float, width: float,
          RGBA format.
     :param float tilt_angle: rotation of the rectangle. Defaults to zero.
     """
-    p1 = -width // 2 + center_x, -height // 2 + center_y
-    p2 = width // 2 + center_x, -height // 2 + center_y
-    p3 = width // 2 + center_x, height // 2 + center_y
-    p4 = -width // 2 + center_x, height // 2 + center_y
+    p1 = [-width // 2 + center_x, -height // 2 + center_y]
+    p2 = [width // 2 + center_x, -height // 2 + center_y]
+    p3 = [width // 2 + center_x, height // 2 + center_y]
+    p4 = [-width // 2 + center_x, height // 2 + center_y]
 
     if tilt_angle != 0:
         p1 = rotate_point(p1[0], p1[1], center_x, center_y, tilt_angle)
@@ -840,35 +837,51 @@ def draw_rectangle_filled(center_x: float, center_y: float, width: float,
     _generic_draw_line_strip((p1, p2, p4, p3), color, gl.GL_TRIANGLE_STRIP)
 
 
-def draw_texture_rectangle(center_x: float, center_y: float, width: float,
-                           height: float, texture: Texture, angle: float = 0,
-                           alpha: int = 255,
-                           repeat_count_x: int = 1, repeat_count_y: int = 1):
+def draw_scaled_texture_rectangle(center_x: float, center_y: float,
+                                  texture: Texture,
+                                  scale: float = 1.0,
+                                  angle: float = 0,
+                                  alpha: int = 255):
     """
     Draw a textured rectangle on-screen.
 
     :param float center_x: x coordinate of rectangle center.
     :param float center_y: y coordinate of rectangle center.
-    :param float width: width of the rectangle.
-    :param float height: height of the rectangle.
+    :param int texture: identifier of texture returned from load_texture() call
+    :param float scale: scale of texture
+    :param float angle: rotation of the rectangle. Defaults to zero.
+    :param float alpha: Transparency of image. 0 is fully transparent, 255 (default) is visible
+    """
+
+    texture.draw_scaled(center_x, center_y, scale, angle, alpha)
+
+
+def draw_texture_rectangle(center_x: float, center_y: float,
+                           width: float,
+                           height: float,
+                           texture: Texture,
+                           angle: float = 0,
+                           alpha: int = 255):
+    """
+    Draw a textured rectangle on-screen.
+
+    :param float center_x: x coordinate of rectangle center.
+    :param float center_y: y coordinate of rectangle center.
+    :param float width: width of texture
+    :param float height: height of texture
     :param int texture: identifier of texture returned from load_texture() call
     :param float angle: rotation of the rectangle. Defaults to zero.
     :param float alpha: Transparency of image. 0 is fully transparent, 255 (default) is visible
-    :param int repeat_count_x: Unused for now
-    :param int repeat_count_y: Unused for now
     """
 
-    texture.draw(center_x, center_y, width,
-                 height, angle, alpha, False,
-                 repeat_count_x, repeat_count_y)
+    texture.draw_sized(center_x, center_y, width, height, angle, alpha)
 
 
-# noinspection PyUnusedLocal
-def draw_xywh_rectangle_textured(bottom_left_x: float, bottom_left_y: float,
-                                 width: float, height: float,
+def draw_lrwh_rectangle_textured(bottom_left_x: float, bottom_left_y: float,
+                                 width: float,
+                                 height: float,
                                  texture: Texture, angle: float = 0,
-                                 alpha: int = 255,
-                                 repeat_count_x: int = 1, repeat_count_y: int = 1):
+                                 alpha: int = 255):
     """
     Draw a texture extending from bottom left to top right.
 
@@ -879,19 +892,14 @@ def draw_xywh_rectangle_textured(bottom_left_x: float, bottom_left_y: float,
     :param int texture: identifier of texture returned from load_texture() call
     :param float angle: rotation of the rectangle. Defaults to zero.
     :param int alpha: Transparency of image. 0 is fully transparent, 255 (default) is visible
-    :param int repeat_count_x: Unused for now
-    :param int repeat_count_y: Unused for now
     """
 
     center_x = bottom_left_x + (width / 2)
     center_y = bottom_left_y + (height / 2)
-    draw_texture_rectangle(center_x, center_y,
-                           width, height,
-                           texture,
-                           angle=angle, alpha=alpha)
+    texture.draw_sized(center_x, center_y, width, height, angle=angle, alpha=alpha)
 
 
-def get_pixel(x: int, y: int):
+def get_pixel(x: int, y: int) -> Tuple[int, int, int]:
     """
     Given an x, y, will return RGB color value of that point.
 
@@ -903,7 +911,11 @@ def get_pixel(x: int, y: int):
 
     # The window may be 'scaled' on hi-res displays. Particularly Macs. OpenGL
     # won't account for this, so we need to.
-    pixel_ratio = get_window().get_pixel_ratio()
+    window = get_window()
+    if not window:
+        raise ValueError("No window is available to get pixel data from.")
+
+    pixel_ratio = window.get_pixel_ratio()
     x = int(pixel_ratio * x)
     y = int(pixel_ratio * y)
 

@@ -95,10 +95,10 @@ def _create_rects(rect_list: Iterable[Sprite]) -> List[float]:
         y1 = -shape.height / 2 + shape.center_y
         y2 = shape.height / 2 + shape.center_y
 
-        p1 = x1, y1
-        p2 = x2, y1
-        p3 = x2, y2
-        p4 = x1, y2
+        p1 = [x1, y1]
+        p2 = [x2, y1]
+        p3 = [x2, y2]
+        p4 = [x1, y2]
 
         if shape.angle:
             p1 = rotate_point(p1[0], p1[1], shape.center_x, shape.center_y, shape.angle)
@@ -129,6 +129,9 @@ class _SpatialHash:
         return int(point[0] / self.cell_size), int(point[1] / self.cell_size)
 
     def reset(self):
+        """
+        Clear the spatial hash
+        """
         self.contents = {}
 
     def insert_object_for_box(self, new_object: Sprite):
@@ -270,7 +273,11 @@ _SpriteType = TypeVar('_SpriteType', bound=Sprite)
 
 
 class SpriteList(Generic[_SpriteType]):
-
+    """
+    Keep a list of sprites. Contains many optimizations around batch-drawing sprites
+    and doing collision detection. For optimization reasons, use_spatial_hash and
+    is_static are very important.
+    """
     array_of_images: Optional[List[Any]]
     next_texture_id = 0
 
@@ -281,9 +288,11 @@ class SpriteList(Generic[_SpriteType]):
         :param bool use_spatial_hash: If set to True, this will make moving a sprite
                in the SpriteList slower, but it will speed up collision detection
                with items in the SpriteList. Great for doing collision detection
-               with walls/platforms.
+               with static walls/platforms.
         :param int spatial_hash_cell_size:
-        :param bool is_static: Speeds drawing if this list won't change.
+        :param bool is_static: Speeds drawing if the sprites in the list do not
+               move. Will result in buggy behavior if the sprites move when this
+               is set to True.
         """
         # List of sprites in the sprite list
         self.sprite_list = []
@@ -347,6 +356,41 @@ class SpriteList(Generic[_SpriteType]):
         if self.use_spatial_hash:
             self.spatial_hash.insert_object_for_box(item)
 
+    def extend(self, items: list):
+        """
+        Extends the current list with the given list
+
+        :param list items: list of Sprites to add to the list
+        """
+        for item in items:
+            self.append(item)
+
+    def insert(self, index: int, item: _SpriteType):
+        """
+        Inserts a sprite at a given index
+
+        :param int index: The index at which to insert
+        :param Sprite item: The sprite to insert
+        """
+        self.sprite_list.insert(index, item)
+        item.register_sprite_list(self)
+        for idx, sprite in enumerate(self.sprite_list[index:], start=index):
+            self.sprite_idx[sprite] = idx
+
+        self._vao1 = None
+        if self.use_spatial_hash:
+            self.spatial_hash.insert_object_for_box(item)
+
+    def reverse(self):
+        """
+        Reverses the current list inplace
+        """
+        self.sprite_list.reverse()
+        for idx, sprite in enumerate(self.sprite_list):
+            self.sprite_idx[sprite] = idx
+
+        self._vao1 = None
+
     def _recalculate_spatial_hash(self, item: _SpriteType):
         """ Recalculate the spatial hash for a particular item. """
         if self.use_spatial_hash:
@@ -390,6 +434,9 @@ class SpriteList(Generic[_SpriteType]):
             sprite.on_update(delta_time)
 
     def update_animation(self, delta_time: float = 1/60):
+        """
+        Call the update_animation in every sprite in the sprite list.
+        """
         for sprite in self.sprite_list:
             sprite.update_animation(delta_time)
 
@@ -434,7 +481,7 @@ class SpriteList(Generic[_SpriteType]):
         else:
             usage = 'stream'
 
-        def calculate_pos_buffer():
+        def _calculate_pos_buffer():
             self._sprite_pos_data = array.array('f')
             # print("A")
             for sprite in self.sprite_list:
@@ -453,7 +500,7 @@ class SpriteList(Generic[_SpriteType]):
                 instanced=True)
             self._sprite_pos_changed = False
 
-        def calculate_size_buffer():
+        def _calculate_size_buffer():
             self._sprite_size_data = array.array('f')
             for sprite in self.sprite_list:
                 self._sprite_size_data.append(sprite.width)
@@ -471,7 +518,7 @@ class SpriteList(Generic[_SpriteType]):
                 instanced=True)
             self._sprite_size_changed = False
 
-        def calculate_angle_buffer():
+        def _calculate_angle_buffer():
             self._sprite_angle_data = array.array('f')
             for sprite in self.sprite_list:
                 self._sprite_angle_data.append(math.radians(sprite.angle))
@@ -488,7 +535,7 @@ class SpriteList(Generic[_SpriteType]):
                 instanced=True)
             self._sprite_angle_changed = False
 
-        def calculate_colors():
+        def _calculate_colors():
             self._sprite_color_data = array.array('B')
             for sprite in self.sprite_list:
                 self._sprite_color_data.append(int(sprite.color[0]))
@@ -508,7 +555,7 @@ class SpriteList(Generic[_SpriteType]):
                 normalized=['in_color'], instanced=True)
             self._sprite_color_changed = False
 
-        def calculate_sub_tex_coords():
+        def _calculate_sub_tex_coords():
 
             new_array_of_texture_names = []
             new_array_of_images = []
@@ -532,6 +579,10 @@ class SpriteList(Generic[_SpriteType]):
 
                 if name_of_texture_to_check not in new_array_of_texture_names:
                     new_array_of_texture_names.append(name_of_texture_to_check)
+                    if sprite.texture is None:
+                        raise ValueError(f"Sprite has no texture.")
+                    if sprite.texture.image is None:
+                        raise ValueError(f"Sprite texture {sprite.texture.name} has no image.")
                     image = sprite.texture.image
                     new_array_of_images.append(image)
 
@@ -619,11 +670,11 @@ class SpriteList(Generic[_SpriteType]):
         if len(self.sprite_list) == 0:
             return
 
-        calculate_pos_buffer()
-        calculate_size_buffer()
-        calculate_angle_buffer()
-        calculate_sub_tex_coords()
-        calculate_colors()
+        _calculate_pos_buffer()
+        _calculate_size_buffer()
+        _calculate_angle_buffer()
+        _calculate_sub_tex_coords()
+        _calculate_colors()
 
         vertices = array.array('f', [
             #  x,    y,   u,   v
@@ -649,7 +700,10 @@ class SpriteList(Generic[_SpriteType]):
                        self._sprite_color_desc]
         self._vao1 = shader.vertex_array(self.program, vao_content)
 
-    def dump(self):
+    def _dump(self):
+        """
+        Debugging method used to dump raw byte data in the OpenGL buffer.
+        """
         buffer = self._sprite_pos_data.tobytes()
         record_size = len(buffer) / len(self.sprite_list)
         for i, char in enumerate(buffer):
@@ -886,14 +940,14 @@ class SpriteList(Generic[_SpriteType]):
     def __getitem__(self, i):
         return self.sprite_list[i]
 
-    def pop(self) -> Sprite:
+    def pop(self, index: int = -1) -> Sprite:
         """
-        Pop off the last sprite in the list.
+        Pop off the last sprite, or the given index, from the list
         """
         if len(self.sprite_list) == 0:
             raise(ValueError("pop from empty list"))
 
-        sprite = self.sprite_list[-1]
+        sprite = self.sprite_list[index]
         self.remove(sprite)
         return sprite
 

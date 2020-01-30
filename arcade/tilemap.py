@@ -20,7 +20,7 @@ from pathlib import Path
 
 from arcade import Sprite
 from arcade import AnimatedTimeBasedSprite
-from arcade import _AnimationKeyframe
+from arcade import AnimationKeyframe
 from arcade import SpriteList
 from arcade.arcade_types import Point
 
@@ -264,10 +264,6 @@ def _create_sprite_from_tile(map_object, tile: pytiled_parser.objects.Tile,
             else:
                 print(f"Warning: Hitbox type {type(hitbox)} not supported.")
 
-            # Scale the points to our sprite scaling
-            for point in points:
-                point[0] *= scaling
-                point[1] *= scaling
             my_sprite.points = points
 
     if tile.animation is not None:
@@ -280,7 +276,7 @@ def _create_sprite_from_tile(map_object, tile: pytiled_parser.objects.Tile,
                     print(f"Warning: can't file {tmx_file} ")
                     return None
 
-                key_frame = _AnimationKeyframe(frame.tile_id, frame.duration, frame_tile.image)
+                key_frame = AnimationKeyframe(frame.tile_id, frame.duration, frame_tile.image)
                 key_frame_list.append(key_frame)
                 # print(f"Add tile {frame.tile_id} for keyframe. Source: {frame_tile.image.source}")
 
