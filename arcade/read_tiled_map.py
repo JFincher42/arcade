@@ -141,7 +141,7 @@ def read_tiled_map(tmx_file: str, scaling: float = 1, tsx_file: str = None) -> T
     my_map = TiledMap()
 
     # If we should pull from local resources, replace with proper path
-    if tmx_file.startswith(":resources:"):
+    if isinstance(tmx_file, str) and str(tmx_file).startswith(":resources:"):
         import os
         path = os.path.dirname(os.path.abspath(__file__))
         tmx_file = f"{path}/resources/{tmx_file[11:]}"
@@ -348,8 +348,8 @@ def generate_sprites(map_object: TiledMap, layer_name: str, scaling: float, base
                 tmx_file = base_directory + tile_info.source
 
                 my_sprite = Sprite(tmx_file, scaling)
-                my_sprite.right = column_index * (map_object.tilewidth * scaling)
-                my_sprite.top = (map_object.height - row_index) * (map_object.tileheight * scaling)
+                my_sprite.center_x = column_index * (map_object.tilewidth * scaling) - map_object.tilewidth / 2 * scaling
+                my_sprite.center_y = (map_object.height - row_index) * (map_object.tileheight * scaling) - map_object.tileheight / 2 * scaling
 
                 if tile_info.points is not None:
                     my_sprite.set_points(tile_info.points)

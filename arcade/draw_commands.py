@@ -89,8 +89,8 @@ def draw_arc_filled(center_x: float, center_y: float,
     for segment in range(start_segment, end_segment + 1):
         theta = 2.0 * 3.1415926 * segment / num_segments
 
-        x = width * math.cos(theta)
-        y = height * math.sin(theta)
+        x = width * math.cos(theta) / 2
+        y = height * math.sin(theta) / 2
 
         unrotated_point_list.append([x, y])
 
@@ -134,10 +134,10 @@ def draw_arc_outline(center_x: float, center_y: float, width: float,
     start_segment = int(start_angle / 360 * num_segments)
     end_segment = int(end_angle / 360 * num_segments)
 
-    inside_width = width - border_width / 2
-    outside_width = width + border_width / 2
-    inside_height = height - border_width / 2
-    outside_height = height + border_width / 2
+    inside_width = (width - border_width / 2) / 2
+    outside_width = (width + border_width / 2) / 2
+    inside_height = (height - border_width / 2) / 2
+    outside_height = (height + border_width / 2) / 2
 
     for segment in range(start_segment, end_segment + 1):
         theta = 2.0 * math.pi * segment / num_segments
@@ -575,15 +575,9 @@ def draw_polygon_filled(point_list: PointList,
     """
     Draw a polygon that is filled in.
 
-    Args:
-        :point_list: List of points making up the lines. Each point is
+    :param PointList point_list: List of points making up the lines. Each point is
          in a list. So it is a list of lists.
-        :color: color, specified in a list of 3 or 4 bytes in RGB or
-         RGBA format.
-    Returns:
-        None
-    Raises:
-        None
+    :param Color color: The color, specified in RGB or RGBA format.
     """
 
     triangle_points = earclip(point_list)
@@ -947,12 +941,21 @@ def get_image(x: int = 0, y: int = 0, width: int = None, height: int = None):
 
     # Get the dimensions
     window = get_window()
+
     if window is None:
         raise RuntimeError("Handle to the current window is None")
+
+    pixel_ratio = window.get_pixel_ratio()
+    x = int(pixel_ratio * x)
+    y = int(pixel_ratio * y)
+
     if width is None:
         width = window.width - x
     if height is None:
         height = window.height - y
+
+    width = int(pixel_ratio * width)
+    height = int(pixel_ratio * height)
 
     # Create an image buffer
     # noinspection PyTypeChecker

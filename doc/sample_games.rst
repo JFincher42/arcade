@@ -7,6 +7,23 @@ paul@cravenfamily.com.
 GitHub Projects
 ---------------
 
+Battle Bros
+~~~~~~~~~~~
+
+.. image:: https://raw.githubusercontent.com/njbittner/battle-bros-pyarcade/master/battlebros.gif
+   :width: 50%
+
+`Battle Bros <https://github.com/njbittner/battle-bros-pyarcade>`_ Mortal Kombat style game.
+
+Rabbit Herder
+~~~~~~~~~~~~~
+
+.. image:: https://raw.githubusercontent.com/ryancollingwood/arcade-rabbit-herder/master/resources/static/preview.gif
+   :width: 50%
+
+`Rabbit Herder <https://github.com/ryancollingwood/arcade-rabbit-herder>`_,
+use carrots and potions to herd a rabbit through a maze.
+
 The Great Skeleton War
 ~~~~~~~~~~~~~~~~~~~~~~
 

@@ -1,7 +1,7 @@
 numpy
 Pillow
 Pyglet>=1.4.8
-pytiled_parser
+pytiled_parser==0.9.3
 pytest
 pymunk
 matplotlib
@@ -9,7 +9,7 @@ wheel
 twine
 sphinx-sitemap
 sphinx_rtd_theme
+sphinx-copybutton
 flake8
-pyglet-ffmpeg2
 zstandard
 mypy

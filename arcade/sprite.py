@@ -18,14 +18,17 @@ from typing import Dict
 from typing import Any
 from typing import Optional
 from typing import TYPE_CHECKING
+from typing import cast
 
 import PIL.Image
 
 from arcade import load_texture
-from arcade import draw_scaled_texture_rectangle
 from arcade import Texture
+from arcade import Matrix3x3
 from arcade import rotate_point
 from arcade import draw_polygon_outline
+from arcade import Color
+from arcade.color import BLACK
 
 from arcade.arcade_types import RGB, Point
 if TYPE_CHECKING:  # handle import cycle caused by type hinting
@@ -186,6 +189,10 @@ class Sprite:
 
         self.repeat_count_x = repeat_count_x
         self.repeat_count_y = repeat_count_y
+        self._texture_transform = Matrix3x3()
+
+        # Used if someone insists on doing a sprite.draw()
+        self._sprite_list = None
 
     def append_texture(self, texture: Texture):
         """
@@ -199,16 +206,16 @@ class Sprite:
 
     def _get_position(self) -> Tuple[float, float]:
         """
-        Get the center x coordinate of the sprite.
+        Get the center x and y coordinates of the sprite.
 
         Returns:
-            (width, height)
+            (center_x, center_y)
         """
         return self._position
 
     def _set_position(self, new_value: Tuple[float, float]):
         """
-        Set the center x coordinate of the sprite.
+        Set the center x and y coordinates of the sprite.
 
         Args:
             new_value:
@@ -259,14 +266,15 @@ class Sprite:
 
     def set_hit_box(self, points: List[List[float]]):
         """
-        Set a sprite's hit box. When setting the hitbox, assume a sprite
-        scaling of 1.0. Points will be scaled with get_adjusted_hit_box.
+        Set a sprite's hit box. Hitbox should be relative to a sprite's center,
+        and with a scale of 1.0.
+        Points will be scaled with get_adjusted_hit_box.
         """
         self._points = points
 
     def get_hit_box(self) -> Optional[List[List[float]]]:
         """
-        Get a sprite's hit box
+        Get a sprite's hit box, unadjusted for translation, rotation, or scale.
         """
         return self._points
 
@@ -304,9 +312,9 @@ class Sprite:
 
         # Adjust the hitbox
         point_list = []
-        for point_idx in range(len(self._points)):
-            # Get the point
-            point = [self._points[point_idx][0], self._points[point_idx][1]]
+        for point in self._points:
+            # Get a copy of the point
+            point = [point[0], point[1]]
 
             # Scale the point
             if self.scale != 1:
@@ -327,6 +335,7 @@ class Sprite:
 
         # if self.texture:
         #     print(self.texture.name, self._point_list_cache)
+
         return self._point_list_cache
 
     def forward(self, speed: float = 1.0):
@@ -338,6 +347,10 @@ class Sprite:
         self.change_y += math.sin(self.radians) * speed
 
     def reverse(self, speed: float = 1.0):
+        """
+        Set a new speed, but in reverse.
+        :param speed: speed factor
+        """
         self.forward(-speed)
 
     def strafe(self, speed: float = 1.0):
@@ -349,9 +362,17 @@ class Sprite:
         self.change_y += math.cos(self.radians) * speed
 
     def turn_right(self, theta: float = 90):
+        """
+        Rotate the sprite right a certain number of degrees.
+        :param theta: change in angle
+        """
         self.angle -= theta
 
     def turn_left(self, theta: float = 90):
+        """
+        Rotate the sprite left a certain number of degrees.
+        :param theta: change in angle
+        """
         self.angle += theta
 
     def stop(self):
@@ -494,7 +515,7 @@ class Sprite:
 
     def _set_scale(self, new_value: float):
         """ Set the center x coordinate of the sprite. """
-        if new_value != self._height:
+        if new_value != self._scale:
             self.clear_spatial_hashes()
             self._point_list_cache = None
             self._scale = new_value
@@ -504,7 +525,7 @@ class Sprite:
             self.add_spatial_hashes()
 
             for sprite_list in self.sprite_lists:
-                sprite_list.update_position(self)
+                sprite_list.update_size(self)
 
     scale = property(_get_scale, _set_scale)
 
@@ -578,10 +599,11 @@ class Sprite:
             self.clear_spatial_hashes()
             self._angle = new_value
             self._point_list_cache = None
-            self.add_spatial_hashes()
 
             for sprite_list in self.sprite_lists:
                 sprite_list.update_angle(self)
+
+            self.add_spatial_hashes()
 
     angle = property(_get_angle, _set_angle)
 
@@ -602,7 +624,7 @@ class Sprite:
 
     def _get_left(self) -> float:
         """
-        Left-most coordinate.
+        Return the x coordinate of the left-side of the sprite's hit box.
         """
         points = self.get_adjusted_hit_box()
         my_min = points[0][0]
@@ -620,7 +642,7 @@ class Sprite:
 
     def _get_right(self) -> float:
         """
-        Return the x coordinate of the right-side of the sprite.
+        Return the x coordinate of the right-side of the sprite's hit box.
         """
 
         points = self.get_adjusted_hit_box()
@@ -662,6 +684,8 @@ class Sprite:
         if texture == self._texture:
             return
 
+        assert(isinstance(texture, Texture))
+
         self.clear_spatial_hashes()
         self._point_list_cache = None
         self._texture = texture
@@ -676,17 +700,44 @@ class Sprite:
 
     texture = property(_get_texture, _set_texture2)
 
+    def _get_texture_transform(self) -> Matrix3x3:
+        return self._texture_transform
+
+    def _set_texture_transform(self, m: Matrix3x3):
+        self._texture_transform = m
+
+    texture_transform = property(_get_texture_transform, _set_texture_transform)
+
     def _get_color(self) -> RGB:
         """
         Return the RGB color associated with the sprite.
         """
         return self._color
 
-    def _set_color(self, color: RGB):
+    def _set_color(self, color: Color):
         """
         Set the current sprite color as a RGB value
         """
-        self._color = color
+        if color is None:
+            raise ValueError("Color must be three or four ints from 0-255")
+        if len(color) == 3:
+            if self._color[0] == color[0] \
+                    and self._color[1] == color[1] \
+                    and self._color[2] == color[2]:
+                return
+        elif len(color) == 4:
+            color = cast(List, color) # Prevent typing error
+            if self._color[0] == color[0] \
+                    and self._color[1] == color[1] \
+                    and self._color[2] == color[2]\
+                    and self.alpha == color[3]:
+                return
+            self.alpha = color[3]
+        else:
+            raise ValueError("Color must be three or four ints from 0-255")
+
+        self._color = color[0], color[1], color[2]
+
         for sprite_list in self.sprite_lists:
             sprite_list.update_color(self)
 
@@ -721,10 +772,19 @@ class Sprite:
     def draw(self):
         """ Draw the sprite. """
 
-        draw_scaled_texture_rectangle(self.center_x, self.center_y,
-                                      self._texture, self.scale, self.angle, self.alpha)
+        if self._sprite_list is None:
+            from arcade import SpriteList
+            self._sprite_list = SpriteList()
+            self._sprite_list.append(self)
 
-    def draw_hit_box(self, color, line_thickness):
+        self._sprite_list.draw()
+
+    def draw_hit_box(self, color: Color = BLACK, line_thickness: float = 1):
+        """
+        Draw a sprite's hit-box. This is slow, but useful for debugging.
+        :param color: Color of box
+        :param line_thickness: How thick the box should be
+        """
         points = self.get_adjusted_hit_box()
 
         draw_polygon_outline(points, color, line_thickness)
@@ -754,7 +814,14 @@ class Sprite:
         """
         Remove the sprite from all sprite lists.
         """
-        for sprite_list in self.sprite_lists:
+        if len(self.sprite_lists) > 0:
+            # We can't modify a list as we iterate through it, so create a copy.
+            sprite_lists = self.sprite_lists.copy()
+        else:
+            # If the list is a size 1, we don't need to copy
+            sprite_lists = self.sprite_lists
+
+        for sprite_list in sprite_lists:
             if self in sprite_list:
                 sprite_list.remove(self)
         self.sprite_lists.clear()
@@ -842,9 +909,12 @@ class AnimatedTimeSprite(Sprite):
 
 @dataclasses.dataclass
 class AnimationKeyframe:
+    """
+    Used in animated sprites.
+    """
     tile_id: int
     duration: int
-    image: PIL.Image
+    texture: Texture
 
 
 class AnimatedTimeBasedSprite(Sprite):
@@ -864,7 +934,7 @@ class AnimatedTimeBasedSprite(Sprite):
         super().__init__(filename=filename, scale=scale, image_x=image_x, image_y=image_y,
                          image_width=image_width, image_height=image_height,
                          center_x=center_x, center_y=center_y)
-        self.cur_frame = 0
+        self.cur_frame_idx = 0
         self.frames: List[AnimationKeyframe] = []
         self.time_counter = 0.0
 
@@ -873,14 +943,15 @@ class AnimatedTimeBasedSprite(Sprite):
         Logic for selecting the proper texture to use.
         """
         self.time_counter += delta_time
-        while self.time_counter > self.frames[self.cur_frame].duration / 1000.0:
-            self.time_counter -= self.frames[self.cur_frame].duration / 1000.0
-            self.cur_frame += 1
-            if self.cur_frame >= len(self.frames):
-                self.cur_frame = 0
-            source = self.frames[self.cur_frame].image.source
-            # print(f"Advance to frame {self.cur_frame}: {source}")
-            self.texture = load_texture(source)
+        while self.time_counter > self.frames[self.cur_frame_idx].duration / 1000.0:
+            self.time_counter -= self.frames[self.cur_frame_idx].duration / 1000.0
+            self.cur_frame_idx += 1
+            if self.cur_frame_idx >= len(self.frames):
+                self.cur_frame_idx = 0
+            # source = self.frames[self.cur_frame].texture.image.source
+            cur_frame = self.frames[self.cur_frame_idx]
+            # print(f"Advance to frame {self.cur_frame_idx}: {cur_frame.texture.name}")
+            self.texture = cur_frame.texture
 
 
 class AnimatedWalkingSprite(Sprite):
@@ -997,7 +1068,7 @@ class SpriteSolidColor(Sprite):
         super().__init__()
 
         image = PIL.Image.new('RGBA', (width, height), color)
-        self.texture = Texture("Solid", image)
+        self.texture = Texture(f"Solid-{color[0]}-{color[1]}-{color[2]}", image)
         self._points = self.texture.hit_box_points
 
 

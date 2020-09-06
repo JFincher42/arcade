@@ -93,10 +93,11 @@ class Window(pyglet.window.Window):
         super().set_fullscreen(fullscreen)
         # This used to be necessary on Linux, but no longer appears to be.
         # With Pyglet 2.0+, setting this to false will not allow the screen to
-        # update.
+        # update. It does, however, cause flickering if creating a window that
+        # isn't derived from the Window class.
         # self.invalid = False
         set_window(self)
-        set_viewport(0, self.width, 0, self.height)
+        set_viewport(0, self.width - 1, 0, self.height - 1)
 
         self.current_view: Optional[View] = None
         self.button_list: List[TextButton] = []
@@ -511,7 +512,7 @@ class Window(pyglet.window.Window):
         super().set_exclusive_keyboard(exclusive)
 
     def get_system_mouse_cursor(self, name):
-        super().get_system_mouse_cursor(name)
+        return super().get_system_mouse_cursor(name)
 
     def dispatch_events(self):
         super().dispatch_events()
@@ -538,6 +539,7 @@ def open_window(width: int, height: int, window_title: str, resizable: bool = Fa
     global _window
     _window = Window(width, height, window_title, resizable=resizable, update_rate=None,
                      antialiasing=antialiasing)
+    _window.invalid = False
     return _window
 
 

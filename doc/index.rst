@@ -45,9 +45,9 @@ The Python Arcade Library
           <ul>
           <li><a href="quick_index.html">Quick API Index</a></li>
           <li><a href="arcade.html">Full Arcade API Docs</a></li>
-          <li><a href="arcade.csscolor.html">Colors</a> | <a href="arcade.csscolor.html">CSS Colors</a></li>
-          <li><a href="quick_index.html#application-api">Window Class</a></li>
-          <li><a href="quick_index.html#sprite-api">Sprites</a></li>
+          <li><a href="arcade.color.html">Colors</a> | <a href="arcade.csscolor.html">CSS Colors</a></li>
+          <li><a href="arcade.html#arcade.Window">Window Class</a></li>
+          <li><a href="arcade.html#arcade.Sprite">Sprite</a> | <a href="arcade.html#arcade.SpriteList">SpriteList</a></li>
           <li><a href="resources.html">Resources - Default Images</a></li>
          </ul>
         </td>
@@ -63,6 +63,7 @@ The Python Arcade Library
             <li><a href="https://www.instagram.com/PythonArcadeLibrary/">Instagram @PythonArcadeLibrary</a></li>
             <li><a href="https://www.facebook.com/ArcadeLibrary/">Facebook @ArcadeLibrary</a></li>
             <li><a href="https://www.reddit.com/r/pythonarcade/">Reddit /r/pythonarcade</a></li>
+            <li><a href="https://discord.gg/ZjGDqMp">Discord</a></li>
             <li><a href="diversity.html">Statement on Diversity</a></li>
           </ul>
         </td>
@@ -81,6 +82,22 @@ The Python Arcade Library
         </td>
         <td>
           <div style="display:inline-block;">
+            <img style="width:78px;" src="_static/speedometer-icon.svg">
+          </div>
+          <div style="display:inline-block;">
+            <h2>Performance</h2>
+          </div>
+          <ul>
+          <li><a href="performance_tips.html">Performance Tips</a></li>
+          <li><a href="arcade_vs_pygame_performance.html">Arcade vs. Pygame Performance</a></li>
+          <li><a href="pygame_comparison.html">Arcade vs. Pygame Feature Comparison</a></li>
+          </ul>
+        </td>
+      </tr>
+      <tr>
+
+        <td>
+          <div style="display:inline-block;">
             <img style="width:78px;" src="_static/code.svg">
           </div>
           <div style="display:inline-block;">
@@ -92,20 +109,7 @@ The Python Arcade Library
             <li><a href="enhancement_list.html">Enhancement List</a></li>
           </ul>
         </td>
-      </tr>
-      <tr>
-        <td>
-          <div style="display:inline-block;">
-            <img style="width:78px;" src="_static/speedometer-icon.svg">
-          </div>
-          <div style="display:inline-block;">
-            <h2>Performance</h2>
-          </div>
-          <ul>
-          <li><a href="performance_tips.html">Performance Tips</a></li>
-          <li><a href="pygame_comparison.html">Pygame Comparison</a></li>
-          </ul>
-        </td>
+
         <td>
           <div style="display:inline-block;">
             <img style="width:78px;" src="_static/owl.svg">
@@ -114,10 +118,13 @@ The Python Arcade Library
             <h2>Learn</h2>
           </div>
           <ul>
-            <li><a href="http://arcade-book.readthedocs.io/en/latest/">Learn to Program with Arcade</a></li>
-            <li><a href="https://realpython.com/arcade-python-game-framework/">Arcade: A Primer on the Python Game Framework</a></li>
-            <li><a href="https://youtu.be/DAWHMHMPVHU">PyCon 2018 Talk</a></li>
-            <li><a href="https://youtu.be/Djtm1DzWSvo">PyCon 2019 Tutorial</a></li>
+            <li><a href="https://learn.arcade.academy/">Book: Learn to Program with Arcade</a></li>
+            <li><a href="https://realpython.com/arcade-python-game-framework/">Real Python Article: A Primer on the Python Game Framework</a></li>
+            <li><a href="tutorials/edge_artifacts/index.html">Fixing Edge Artifacts</a></li>
+            <li><a href="https://mryslab.github.io/bots-in-pieces/python-banyan/arcade/2020/02/21/p2p-arcade-1.html">Peer To Peer Gaming With Arcade and Python Banyan</a></li>
+            <li><a href="https://youtu.be/Djtm1DzWSvo">US PyCon 2019 Tutorial</a></li>
+            <li><a href="https://youtu.be/2SMkk63k6Ik">Aus PyCon 2018 Multiplayer Games</a></li>
+            <li><a href="https://youtu.be/DAWHMHMPVHU">US PyCon 2018 Talk</a></li>
            </ul>
         </td>
       </tr>
@@ -151,6 +158,7 @@ game without learning a complex framework.
    pygame_comparison
    resources
    enhancement_list
+   tutorials/edge_artifacts/index
 
 Learn about it:
 ^^^^^^^^^^^^^^^

@@ -13,11 +13,6 @@ import sys
 if sys.version_info[0] < 3 or (sys.version_info[0] == 3 and sys.version_info[1] < 6):
     sys.exit("The Arcade Library requires Python 3.6 or higher.")
 
-try:
-    import pyglet_ffmpeg2
-except Exception as e:
-    print("Unable to load the ffmpeg library. ", e)
-
 # noinspection PyPep8
 import pyglet
 
@@ -29,7 +24,8 @@ from arcade import color
 from arcade import csscolor
 # noinspection PyPep8
 from arcade import key
-
+# noinspection PyPep8
+from arcade import resources
 from .window_commands import close_window
 from .window_commands import create_orthogonal_projection
 from .window_commands import finish_render
@@ -85,7 +81,9 @@ from .drawing_support import get_points_for_thick_line
 from .drawing_support import make_transparent_color
 from .drawing_support import rotate_point
 
+from .texture import Matrix3x3
 from .texture import Texture
+from .texture import cleanup_texture_cache
 from .texture import load_spritesheet
 from .texture import load_texture
 from .texture import load_textures
@@ -184,7 +182,6 @@ from .particle import LifetimeParticle
 from .particle import Particle
 from .particle import clamp
 
-from .sound import PlaysoundException
 from .sound import Sound
 from .sound import load_sound
 from .sound import play_sound
@@ -206,6 +203,7 @@ from .sprite_list import SpriteList
 from .sprite_list import check_for_collision
 from .sprite_list import check_for_collision_with_list
 from .sprite_list import get_closest_sprite
+from .sprite_list import get_sprites_at_exact_point
 from .sprite_list import get_sprites_at_point
 
 from .physics_engines import PhysicsEnginePlatformer
@@ -270,11 +268,11 @@ __all__ = ['AnimatedTimeBasedSprite',
            'MOUSE_BUTTON_LEFT',
            'MOUSE_BUTTON_MIDDLE',
            'MOUSE_BUTTON_RIGHT',
+           'Matrix3x3',
            'NoOpenGLException',
            'Particle',
            'PhysicsEnginePlatformer',
            'PhysicsEngineSimple',
-           'PlaysoundException',
            'Point',
            'Point',
            'PointList',
@@ -310,6 +308,7 @@ __all__ = ['AnimatedTimeBasedSprite',
            'check_for_collision',
            'check_for_collision_with_list',
            'clamp',
+           'cleanup_texture_cache',
            'close_window',
            'create_ellipse',
            'create_ellipse_filled',
@@ -375,6 +374,7 @@ __all__ = ['AnimatedTimeBasedSprite',
            'get_projection',
            'get_rectangle_points',
            'get_scaling_factor',
+           'get_sprites_at_exact_point',
            'get_sprites_at_point',
            'get_tilemap_layer',
            'get_viewport',
